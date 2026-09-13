@@ -1,47 +1,65 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Optional
+import uuid
 
-class Todo(BaseModel):
-    id: int
-    title: Optional[str] = None
+from typing import Annotated, Optional
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+
+class TodoCreate(BaseModel):
+    title: Annotated[str, Field(min_length=1, max_length=100)]
+    desc: Annotated[Optional[str], Field(min_length=1, max_length=1000)] = None
+
+
+class TodoUpdate(BaseModel):
+    title: Annotated[Optional[str], Field(min_length=1, max_length=100)] = None
+    desc: Annotated[Optional[str], Field(min_length=1, max_length=1000)] = None
+
+
+class TodoResponse(BaseModel):
+    todo_id: str
+    title: str
+    desc: Optional[str] = None
 
 
 app = FastAPI()
 
-# "Database" giả lập - dict để tra cứu nhanh theo id
-db: dict[int, Todo] = {}
+db: dict[str, TodoResponse] = {}
 
 
-def get_all_todos() -> list[Todo]:
-    """Chuyển đổi dữ liệu lưu trữ (dict) sang dạng trả về API (list)."""
+def new_id() -> str:
+    """Tạo id ngẫu nhiên."""
+    return uuid.uuid4().hex
+
+
+def get_todo_or_404(todo_id: str) -> TodoResponse:
+    todo: TodoResponse | None = db.get(todo_id)
+    if todo is None:
+        raise HTTPException(status_code=404, detail=f"Todo {todo_id} not found")
+    return todo
+
+
+@app.get("/items", response_model=list[TodoResponse])
+def read_items():
     return list(db.values())
 
 
-def get_todo_or_404(id: int) -> Todo:
-    """Lấy 1 todo theo id, tự raise lỗi nếu không tìm thấy."""
-    todo: Todo | None = db.get(id)
-    if todo is None:
-        raise HTTPException(status_code=404, detail=f"Todo {id} not found")
-    return todo
+@app.post("/items", response_model=TodoResponse, status_code=201)
+def create_item(payload: TodoCreate):
+    todo_id: str = new_id()
+    new_todo = TodoResponse(todo_id=todo_id, **payload.model_dump())
+    db[todo_id] = new_todo
+    return new_todo
 
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.patch("/items/{todo_id}", response_model=TodoResponse)
+def update_item(todo_id: str, todo: TodoUpdate):
+    existing: TodoResponse = get_todo_or_404(todo_id)
+    updated: TodoResponse = existing.model_copy(update=todo.model_dump(exclude_unset=True))
+    db[todo_id] = updated
+    return updated
 
 
-@app.post("/items", response_model=Todo)
-def create_item(todo: Todo):
-    db[todo.id] = todo
-    return todo
-
-
-@app.get("/items", response_model=list[Todo])
-def read_items():
-    return get_all_todos()
-
-
-@app.get("/items/{id}", response_model=Todo)
-def read_item(id: int):
-    return get_todo_or_404(id)
+@app.delete("/items/{todo_id}", status_code=204)
+def delete_item(todo_id: str):
+    get_todo_or_404(todo_id)
+    del db[todo_id]

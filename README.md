@@ -9,8 +9,8 @@ Checklist dưới đây dùng để theo dõi tiến độ — tick `[x]` sau m�
 
 Tách model cho Create/Update/Response thay vì dùng chung 1 model `Todo` cho mọi việc.
 
-- [ ] Tạo `TodoCreate`, `TodoUpdate`, `TodoResponse` riêng biệt
-- [ ] Dùng `Field()` để validate độ dài, giá trị min/max
+- [x] Tạo `TodoCreate`, `TodoUpdate`, `TodoResponse` riêng biệt
+- [x] Dùng `Field()` để validate độ dài, giá trị min/max
 - [ ] Thử `field_validator` và `model_validator` (Pydantic v2)
 - [ ] Đọc: https://docs.pydantic.dev/latest/concepts/validators/
 
